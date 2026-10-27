@@ -188,9 +188,22 @@ struct ExternalDisplayView: View {
             Color.black.ignoresSafeArea()
 
             if isDone && (listeningMode == .wordTracking || hasNextPage) {
-                doneView
+                if content.isTake && hasNextPage {
+                    takeBreakView
+                } else {
+                    doneView
+                }
+            } else if content.isTake {
+                takePrompterView
             } else {
                 prompterView
+            }
+        }
+        .overlay(alignment: .topLeading) {
+            if content.isTake {
+                takeStatusView
+                    .padding(.top, 20)
+                    .padding(.leading, 40)
             }
         }
         .overlay(alignment: .topTrailing) {
@@ -207,11 +220,17 @@ struct ExternalDisplayView: View {
                 if listeningMode == .wordTracking {
                     speechRecognizer.stop()
                 }
-                if handlesAutoNextPage && hasNextPage && NotchSettings.shared.autoNextPage {
+                if handlesAutoNextPage && hasNextPage && content.autoAdvances {
                     startCountdown()
                 }
             } else {
                 cancelCountdown()
+            }
+        }
+        .onChange(of: countdownRemaining) { _, remaining in
+            // Share with secondary displays showing the same script
+            if handlesAutoNextPage {
+                speechRecognizer.pageCountdownRemaining = remaining
             }
         }
         .onDisappear { cancelCountdown() }
@@ -230,6 +249,12 @@ struct ExternalDisplayView: View {
             }
         }
         .onChange(of: content.currentPageIndex) { _, _ in
+            timerWordProgress = 0
+            isUserScrolling = false
+            cancelCountdown()
+        }
+        .onChange(of: content.pageGeneration) { _, _ in
+            // Also covers reloading the same take (redo)
             timerWordProgress = 0
             isUserScrolling = false
             cancelCountdown()
@@ -364,7 +389,7 @@ struct ExternalDisplayView: View {
 
     private func startCountdown() {
         countdownTimer?.invalidate()
-        countdownRemaining = NotchSettings.shared.autoNextPageDelay
+        countdownRemaining = content.advanceDelay
         guard countdownRemaining > 0 else {
             countdownTimer = nil
             DispatchQueue.main.async {
@@ -388,5 +413,74 @@ struct ExternalDisplayView: View {
         countdownTimer?.invalidate()
         countdownTimer = nil
         countdownRemaining = 0
+    }
+}
+
+// MARK: - Take Mode (CNL)
+
+extension ExternalDisplayView {
+    /// One take, scaled to fill the screen. Tracking and timing work exactly
+    /// as in the regular prompter; only the presentation changes.
+    var takePrompterView: some View {
+        GeometryReader { geo in
+            let hPad = max(40, geo.size.width * 0.06)
+            let topPad = max(70, geo.size.height * 0.08)
+            let bottomPad = max(40, geo.size.height * 0.05)
+
+            TakeTextView(
+                words: words,
+                paragraphBreakBeforeWordIndices: content.paragraphBreakBeforeWordIndices,
+                highlightedCharCount: effectiveCharCount,
+                highlightColor: NotchSettings.shared.fontColorPreset.color,
+                cueColor: NotchSettings.shared.cueColorPreset.color,
+                cueUnreadOpacity: NotchSettings.shared.cueBrightness.unreadOpacity,
+                cueReadOpacity: NotchSettings.shared.cueBrightness.readOpacity,
+                fontFamily: NotchSettings.shared.fontFamilyPreset,
+                maxFontSize: CGFloat(NotchSettings.shared.takeMaxFontSize)
+            )
+            .padding(.horizontal, hPad)
+            .padding(.top, topPad)
+            .padding(.bottom, bottomPad)
+            .id(content.pageGeneration)
+            .transition(.opacity)
+        }
+    }
+
+    /// The pause between takes: a black screen with the same countdown the
+    /// app uses for Auto Next Page, sized up for a monitor across the room.
+    var takeBreakView: some View {
+        let remaining = handlesAutoNextPage
+            ? countdownRemaining
+            : speechRecognizer.pageCountdownRemaining
+
+        return GeometryReader { geo in
+            ZStack {
+                if remaining > 0 {
+                    Text("\(remaining)")
+                        .font(.system(size: min(geo.size.height * 0.4, 360), weight: .heavy, design: .rounded))
+                        .foregroundStyle(.white)
+                        .contentTransition(.numericText())
+                        .animation(.easeInOut(duration: 0.3), value: remaining)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .transition(.opacity)
+    }
+
+    /// Small take counter and mic state in the corner, for the producer.
+    var takeStatusView: some View {
+        HStack(spacing: 14) {
+            Text("TAKE \(content.currentPageIndex + 1) / \(max(1, content.pageCount))")
+                .font(.system(size: 22, weight: .semibold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(.white.opacity(0.4))
+
+            if listeningMode != .classic {
+                Image(systemName: speechRecognizer.isListening ? "mic.fill" : "mic.slash.fill")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(speechRecognizer.isListening ? .yellow.opacity(0.7) : .white.opacity(0.35))
+            }
+        }
     }
 }

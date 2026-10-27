@@ -43,6 +43,10 @@ class OverlayContent {
     var paragraphBreakBeforeWordIndices: Set<Int> = []
     var totalCharCount: Int = 0
     var hasNextPage: Bool = false
+    /// True while a Take Mode session is playing (CNL). Pages are takes.
+    var isTake: Bool = false
+    /// Bumped on every page/take load, including reloading the same one.
+    var pageGeneration: Int = 0
 
     // Page picker
     var pageCount: Int = 1
@@ -50,6 +54,18 @@ class OverlayContent {
     var pagePreviews: [String] = []
     var showPagePicker: Bool = false
     var jumpToPageIndex: Int? = nil
+}
+
+extension OverlayContent {
+    /// Takes always advance on their own; pages follow the Auto Next Page setting.
+    var autoAdvances: Bool {
+        isTake || NotchSettings.shared.autoNextPage
+    }
+
+    /// Countdown length before the next page or take loads.
+    var advanceDelay: Int {
+        isTake ? NotchSettings.shared.takeBreakSeconds : NotchSettings.shared.autoNextPageDelay
+    }
 }
 
 class NotchOverlayController: NSObject {
@@ -437,6 +453,23 @@ class NotchOverlayController: NSObject {
                 }
                 self.dismiss()
                 return nil
+            }
+            // Take Mode keys (CNL). Arrow and Page keys cover most presentation clickers.
+            let modifiers = event.modifierFlags.intersection([.command, .option, .control, .shift])
+            if self.overlayContent.isTake && modifiers.isEmpty {
+                switch event.keyCode {
+                case 124, 121: // → / Page Down: skip to the next take
+                    TextreamService.shared.advanceToNextPage()
+                    return nil
+                case 123, 116: // ← / Page Up: back to the previous take
+                    TextreamService.shared.goToPreviousPage()
+                    return nil
+                case 15: // R: redo the current take from the top
+                    TextreamService.shared.restartCurrentPage()
+                    return nil
+                default:
+                    break
+                }
             }
             return event
         }
@@ -861,6 +894,10 @@ struct NotchOverlayView: View {
             }
         }
         .animation(.easeInOut(duration: 0.5), value: isDone)
+        .onChange(of: countdownRemaining) { _, remaining in
+            // Share with secondary displays (e.g. the external teleprompter)
+            speechRecognizer.pageCountdownRemaining = remaining
+        }
         .onChange(of: isDone) { _, done in
             if done {
                 // In word tracking mode, stop listening when page is done
@@ -877,7 +914,7 @@ struct NotchOverlayView: View {
                             speechRecognizer.shouldDismiss = true
                         }
                     }
-                } else if NotchSettings.shared.autoNextPage {
+                } else if content.autoAdvances {
                     startCountdown()
                 }
             } else {
@@ -1182,7 +1219,7 @@ struct NotchOverlayView: View {
 
     private func startCountdown() {
         countdownTimer?.invalidate()
-        countdownRemaining = NotchSettings.shared.autoNextPageDelay
+        countdownRemaining = content.advanceDelay
         guard countdownRemaining > 0 else {
             countdownTimer = nil
             DispatchQueue.main.async {
@@ -1396,6 +1433,10 @@ struct FloatingOverlayView: View {
             }
         }
         .animation(.easeInOut(duration: 0.5), value: isDone)
+        .onChange(of: countdownRemaining) { _, remaining in
+            // Share with secondary displays (e.g. the external teleprompter)
+            speechRecognizer.pageCountdownRemaining = remaining
+        }
         .onChange(of: isDone) { _, done in
             if done {
                 if listeningMode == .wordTracking {
@@ -1407,7 +1448,7 @@ struct FloatingOverlayView: View {
                             speechRecognizer.shouldDismiss = true
                         }
                     }
-                } else if followingCursor || NotchSettings.shared.autoNextPage {
+                } else if followingCursor || content.autoAdvances {
                     startCountdown()
                 }
             } else {
@@ -1604,7 +1645,7 @@ struct FloatingOverlayView: View {
 
     private func startCountdown() {
         countdownTimer?.invalidate()
-        countdownRemaining = NotchSettings.shared.autoNextPageDelay
+        countdownRemaining = content.advanceDelay
         guard countdownRemaining > 0 else {
             countdownTimer = nil
             DispatchQueue.main.async {

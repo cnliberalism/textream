@@ -25,9 +25,104 @@ class TextreamService: NSObject, ObservableObject {
     @Published var currentPageIndex: Int = 0
     @Published var readPages: Set<Int> = []
 
+    // MARK: - Take Mode (CNL)
+    //
+    // When Take Mode is on, starting the prompter splits the script into
+    // takes and plays those instead of the editor's pages. The editor's
+    // pages and selected page are left untouched, so saving and editing
+    // behave exactly as before.
+
+    private struct TakeSession {
+        var takes: [String]
+        var index: Int
+    }
+
+    private var takeSession: TakeSession?
+
+    var isTakeSessionActive: Bool { takeSession != nil }
+
+    /// What the prompter steps through: takes during a take session, pages otherwise.
+    private var playbackPages: [String] { takeSession?.takes ?? pages }
+
+    private var playbackIndex: Int {
+        get { takeSession?.index ?? currentPageIndex }
+        set {
+            if takeSession != nil {
+                takeSession?.index = newValue
+            } else {
+                currentPageIndex = newValue
+            }
+        }
+    }
+
+    private var currentPlaybackText: String {
+        let source = playbackPages
+        guard playbackIndex < source.count else { return "" }
+        return source[playbackIndex]
+    }
+
+    /// Splits one page of script into takes.
+    static func splitIntoTakes(_ text: String, mode: TakeSplit) -> [String] {
+        let lines = text
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .map { String($0) }
+
+        switch mode {
+        case .everyLine:
+            return lines
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { !$0.isEmpty }
+        case .blankLine:
+            var takes: [String] = []
+            var block: [String] = []
+            for line in lines {
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                if trimmed.isEmpty {
+                    if !block.isEmpty { takes.append(block.joined(separator: "\n")) }
+                    block = []
+                } else {
+                    block.append(trimmed)
+                }
+            }
+            if !block.isEmpty { takes.append(block.joined(separator: "\n")) }
+            return takes
+        }
+    }
+
+    /// Builds a take session from every page, starting at the first take of
+    /// the editor's selected page. Clears the session when Take Mode is off.
+    private func refreshTakeSession() {
+        let settings = NotchSettings.shared
+        guard settings.takeMode else {
+            takeSession = nil
+            return
+        }
+        var takes: [String] = []
+        var startIndex = 0
+        for (i, page) in pages.enumerated() {
+            if i == currentPageIndex { startIndex = takes.count }
+            takes.append(contentsOf: Self.splitIntoTakes(page, mode: settings.takeSplit))
+        }
+        guard !takes.isEmpty else {
+            takeSession = nil
+            return
+        }
+        takeSession = TakeSession(takes: takes, index: min(startIndex, takes.count - 1))
+    }
+
+    private func setTakeFlag(_ isTake: Bool) {
+        overlayController.overlayContent.isTake = isTake
+        externalDisplayController.overlayContent.isTake = isTake
+    }
+
     var hasNextPage: Bool {
-        for i in (currentPageIndex + 1)..<pages.count {
-            if !pages[i].trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        let source = playbackPages
+        let start = playbackIndex + 1
+        guard start < source.count else { return false }
+        for i in start..<source.count {
+            if !source[i].trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 return true
             }
         }
@@ -39,14 +134,24 @@ class TextreamService: NSObject, ObservableObject {
         return pages[currentPageIndex]
     }
 
+    /// Entry point for text from outside the editor (Services menu, URL scheme).
+    /// Never runs as a take session.
     func readText(_ text: String) {
+        takeSession = nil
+        presentText(text)
+    }
+
+    private func presentText(_ text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
         launchedExternally = true
         hideMainWindow()
 
+        setTakeFlag(takeSession != nil)
         overlayController.show(text: trimmed, hasNextPage: hasNextPage) { [weak self] in
+            self?.takeSession = nil
+            self?.setTakeFlag(false)
             self?.externalDisplayController.dismiss()
             self?.browserServer.hideContent()
             self?.onOverlayDismissed?()
@@ -76,27 +181,53 @@ class TextreamService: NSObject, ObservableObject {
     }
 
     func readCurrentPage() {
-        let trimmed = currentPageText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        readPages.insert(currentPageIndex)
-        readText(trimmed)
+        refreshTakeSession()
+        let trimmed = currentPlaybackText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            takeSession = nil
+            return
+        }
+        if takeSession == nil {
+            readPages.insert(currentPageIndex)
+        }
+        presentText(trimmed)
     }
 
     func advanceToNextPage() {
         // Skip empty pages
-        var nextIndex = currentPageIndex + 1
-        while nextIndex < pages.count {
-            let text = pages[nextIndex].trimmingCharacters(in: .whitespacesAndNewlines)
+        let source = playbackPages
+        var nextIndex = playbackIndex + 1
+        while nextIndex < source.count {
+            let text = source[nextIndex].trimmingCharacters(in: .whitespacesAndNewlines)
             if !text.isEmpty { break }
             nextIndex += 1
         }
-        guard nextIndex < pages.count else { return }
+        guard nextIndex < source.count else { return }
         jumpToPage(index: nextIndex)
     }
 
+    /// Take Mode: step back one take (re-do the previous take).
+    func goToPreviousPage() {
+        let source = playbackPages
+        var prevIndex = playbackIndex - 1
+        while prevIndex >= 0 {
+            let text = source[prevIndex].trimmingCharacters(in: .whitespacesAndNewlines)
+            if !text.isEmpty { break }
+            prevIndex -= 1
+        }
+        guard prevIndex >= 0 else { return }
+        jumpToPage(index: prevIndex)
+    }
+
+    /// Take Mode: start the current take over from the first word.
+    func restartCurrentPage() {
+        jumpToPage(index: playbackIndex)
+    }
+
     func jumpToPage(index: Int) {
-        guard index >= 0 && index < pages.count else { return }
-        let text = pages[index].trimmingCharacters(in: .whitespacesAndNewlines)
+        let source = playbackPages
+        guard index >= 0 && index < source.count else { return }
+        let text = source[index].trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
 
         // Mute mic before switching page content
@@ -105,10 +236,14 @@ class TextreamService: NSObject, ObservableObject {
             overlayController.speechRecognizer.stop()
         }
 
-        currentPageIndex = index
-        readPages.insert(currentPageIndex)
+        playbackIndex = index
+        overlayController.overlayContent.pageGeneration += 1
+        externalDisplayController.overlayContent.pageGeneration += 1
+        if takeSession == nil {
+            readPages.insert(currentPageIndex)
+        }
 
-        let trimmed = currentPageText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = currentPlaybackText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
         // Update content in-place without recreating the panel
@@ -142,15 +277,16 @@ class TextreamService: NSObject, ObservableObject {
     }
 
     func updatePageInfo() {
-        let pagePreviews = pages.enumerated().map { (i, text) in
+        let source = playbackPages
+        let pagePreviews = source.enumerated().map { (i, text) in
             let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
             if trimmed.isEmpty { return "" }
             let preview = String(trimmed.prefix(40))
             return preview + (trimmed.count > 40 ? "…" : "")
         }
         for content in [overlayController.overlayContent, externalDisplayController.overlayContent] {
-            content.pageCount = pages.count
-            content.currentPageIndex = currentPageIndex
+            content.pageCount = source.count
+            content.currentPageIndex = playbackIndex
             content.pagePreviews = pagePreviews
         }
     }
@@ -382,7 +518,9 @@ class TextreamService: NSObject, ObservableObject {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
-        // Director mode is single page
+        // Director mode is single page and never runs as a take session
+        takeSession = nil
+        setTakeFlag(false)
         pages = [trimmed]
         currentPageIndex = 0
         readPages.removeAll()

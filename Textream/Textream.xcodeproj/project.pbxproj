@@ -399,7 +399,7 @@
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Textream;
+				INFOPLIST_KEY_CFBundleDisplayName = "Textream CNL";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 Fatih Kadir Akın";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Textream lets nearby devices view or control your teleprompter over your local network.";
@@ -410,7 +410,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.7.1;
-				PRODUCT_BUNDLE_IDENTIFIER = dev.fka.textream;
+				PRODUCT_BUNDLE_IDENTIFIER = org.cnlhq.textream;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -440,7 +440,7 @@
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Textream;
+				INFOPLIST_KEY_CFBundleDisplayName = "Textream CNL";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 Fatih Kadir Akın";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Textream lets nearby devices view or control your teleprompter over your local network.";
@@ -451,7 +451,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.7.1;
-				PRODUCT_BUNDLE_IDENTIFIER = dev.fka.textream;
+				PRODUCT_BUNDLE_IDENTIFIER = org.cnlhq.textream;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;

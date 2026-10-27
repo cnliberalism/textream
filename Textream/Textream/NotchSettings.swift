@@ -33,6 +33,29 @@ enum FontSizePreset: String, CaseIterable, Identifiable {
     }
 }
 
+// MARK: - Take Split (CNL Take Mode)
+
+/// How a script is broken into takes when Take Mode is on.
+enum TakeSplit: String, CaseIterable, Identifiable {
+    case blankLine, everyLine
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .blankLine: return "Blank Line"
+        case .everyLine: return "Every Line"
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .blankLine: return "A blank line between blocks starts a new take."
+        case .everyLine: return "Each line of the script is its own take."
+        }
+    }
+}
+
 // MARK: - Font Family Preset
 
 enum FontFamilyPreset: String, CaseIterable, Identifiable {
@@ -457,6 +480,33 @@ class NotchSettings {
         didSet { UserDefaults.standard.set(autoNextPageDelay, forKey: "autoNextPageDelay") }
     }
 
+    // MARK: Take Mode (CNL)
+
+    /// Split the script into takes, show one take at a time at fill-the-screen
+    /// size, and black out the screen with a countdown between takes.
+    var takeMode: Bool {
+        didSet { UserDefaults.standard.set(takeMode, forKey: "takeMode") }
+    }
+
+    var takeSplit: TakeSplit {
+        didSet { UserDefaults.standard.set(takeSplit.rawValue, forKey: "takeSplit") }
+    }
+
+    /// Seconds of black screen (with countdown) between takes.
+    var takeBreakSeconds: Int {
+        didSet { UserDefaults.standard.set(takeBreakSeconds, forKey: "takeBreakSeconds") }
+    }
+
+    /// Upper limit for take text size. Each take is scaled to the largest
+    /// size that fits the screen, up to this cap.
+    var takeMaxFontSize: Double {
+        didSet { UserDefaults.standard.set(takeMaxFontSize, forKey: "takeMaxFontSize") }
+    }
+
+    static let takeBreakOptions = [1, 2, 3, 5]
+    static let takeFontSizeRange: ClosedRange<Double> = 72...480
+    static let defaultTakeMaxFontSize: Double = 320
+
     var fullscreenScreenID: UInt32 {
         didSet { UserDefaults.standard.set(Int(fullscreenScreenID), forKey: "fullscreenScreenID") }
     }
@@ -541,6 +591,14 @@ class NotchSettings {
             && UserDefaults.standard.object(forKey: "autoNextPageDelay") != nil
             ? savedDelay
             : 3
+        self.takeMode = UserDefaults.standard.object(forKey: "takeMode") as? Bool ?? false
+        self.takeSplit = TakeSplit(rawValue: UserDefaults.standard.string(forKey: "takeSplit") ?? "") ?? .blankLine
+        let savedBreak = UserDefaults.standard.integer(forKey: "takeBreakSeconds")
+        self.takeBreakSeconds = NotchSettings.takeBreakOptions.contains(savedBreak) ? savedBreak : 3
+        let savedTakeFont = UserDefaults.standard.double(forKey: "takeMaxFontSize")
+        self.takeMaxFontSize = NotchSettings.takeFontSizeRange.contains(savedTakeFont)
+            ? savedTakeFont
+            : NotchSettings.defaultTakeMaxFontSize
         let savedFullscreenScreenID = UserDefaults.standard.integer(forKey: "fullscreenScreenID")
         self.fullscreenScreenID = UInt32(savedFullscreenScreenID)
         self.browserServerEnabled = UserDefaults.standard.object(forKey: "browserServerEnabled") as? Bool ?? false

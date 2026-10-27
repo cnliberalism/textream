@@ -1119,6 +1119,72 @@ struct SettingsView: View {
                         .labelsHidden()
                     }
                 }
+
+                Divider()
+
+                // Take Mode (CNL)
+                Text("Take Mode")
+                    .font(.system(size: 13, weight: .semibold))
+
+                Toggle(isOn: $settings.takeMode) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Read in Takes")
+                            .font(.system(size: 13, weight: .medium))
+                        Text("Show one take at a time, as large as the screen allows, with a black pause and countdown between takes. Works best with the Fullscreen overlay.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .toggleStyle(.checkbox)
+
+                if settings.takeMode {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Split Takes At")
+                            .font(.system(size: 13))
+                        Picker("Split Takes At", selection: $settings.takeSplit) {
+                            ForEach(TakeSplit.allCases) { split in
+                                Text(split.label).tag(split)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                        Text(settings.takeSplit.description)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Pause Between Takes")
+                            .font(.system(size: 13))
+                        Picker("Pause Between Takes", selection: $settings.takeBreakSeconds) {
+                            ForEach(NotchSettings.takeBreakOptions, id: \.self) { seconds in
+                                Text(seconds == 1 ? "1 second" : "\(seconds) seconds").tag(seconds)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Largest Text Size")
+                                .font(.system(size: 13))
+                            Spacer()
+                            Text("\(Int(settings.takeMaxFontSize)) pt")
+                                .font(.system(size: 12))
+                                .monospacedDigit()
+                                .foregroundStyle(.secondary)
+                        }
+                        Slider(value: $settings.takeMaxFontSize, in: NotchSettings.takeFontSizeRange, step: 8)
+                        Text("Each take is scaled to fill the screen, up to this size. Long takes shrink to fit.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Text("While prompting: → or Page Down skips to the next take, ← or Page Up goes back one, R redoes the current take.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
             }
             .padding(16)
         }
@@ -1542,6 +1608,10 @@ struct SettingsView: View {
         settings.selectedMicUID = ""
         settings.autoNextPage = false
         settings.autoNextPageDelay = 3
+        settings.takeMode = false
+        settings.takeSplit = .blankLine
+        settings.takeBreakSeconds = 3
+        settings.takeMaxFontSize = NotchSettings.defaultTakeMaxFontSize
         settings.browserServerEnabled = false
         settings.browserServerPort = 7373
         settings.directorModeEnabled = false

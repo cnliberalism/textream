@@ -107,6 +107,9 @@ class SpeechRecognizer {
     var lastSpokenText: String = ""
     var shouldDismiss: Bool = false
     var shouldAdvancePage: Bool = false
+    /// Seconds left in the between-page countdown, published by whichever
+    /// prompter view runs the countdown so secondary displays can show it too.
+    var pageCountdownRemaining: Int = 0
 
     /// True when recent audio levels indicate the user is actively speaking
     var isSpeaking: Bool {
