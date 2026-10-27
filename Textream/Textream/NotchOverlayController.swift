@@ -156,6 +156,7 @@ class NotchOverlayController: NSObject {
         speechRecognizer.recognizedCharCount = 0
         speechRecognizer.shouldDismiss = false
         speechRecognizer.shouldAdvancePage = false
+        speechRecognizer.pageCountdownRemaining = 0
         speechRecognizer.lastSpokenText = ""
 
         overlayContent.words = normalized
@@ -464,11 +465,12 @@ class NotchOverlayController: NSObject {
                 case 123, 116: // ← / Page Up: back to the previous take
                     TextreamService.shared.goToPreviousPage()
                     return nil
-                case 15: // R: redo the current take from the top
-                    TextreamService.shared.restartCurrentPage()
-                    return nil
                 default:
-                    break
+                    // R: redo the current take from the top (by character, so any keyboard layout works)
+                    if event.charactersIgnoringModifiers?.lowercased() == "r" {
+                        TextreamService.shared.restartCurrentPage()
+                        return nil
+                    }
                 }
             }
             return event
@@ -489,6 +491,7 @@ class NotchOverlayController: NSObject {
         endKeepAwakeActivity()
         speechRecognizer.shouldDismiss = false
         speechRecognizer.shouldAdvancePage = false
+        speechRecognizer.pageCountdownRemaining = 0
     }
 
     private func observeDismiss() {
@@ -943,6 +946,12 @@ struct NotchOverlayView: View {
         .onChange(of: content.currentPageIndex) { _, _ in
             timerWordProgress = 0
             isUserScrolling = false
+        }
+        .onChange(of: content.pageGeneration) { _, _ in
+            // Also covers reloading the same take (redo)
+            timerWordProgress = 0
+            isUserScrolling = false
+            cancelCountdown()
         }
     }
 
@@ -1477,6 +1486,12 @@ struct FloatingOverlayView: View {
         .onChange(of: content.currentPageIndex) { _, _ in
             timerWordProgress = 0
             isUserScrolling = false
+        }
+        .onChange(of: content.pageGeneration) { _, _ in
+            // Also covers reloading the same take (redo)
+            timerWordProgress = 0
+            isUserScrolling = false
+            cancelCountdown()
         }
     }
 

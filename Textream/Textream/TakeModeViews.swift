@@ -55,13 +55,14 @@ enum TakeTextFitter {
             let rect = (text as NSString).boundingRect(
                 with: NSSize(width: width, height: .greatestFiniteMagnitude),
                 options: [.usesLineFragmentOrigin, .usesFontLeading],
-                attributes: attributes
+                attributes: attributes,
+                context: nil
             )
             return ceil(rect.height) <= height
         }
 
         let upper = max(minSize, maxSize)
-        var result: CGFloat
+        let result: CGFloat
         if fits(upper) {
             result = upper
         } else if !fits(minSize) {
