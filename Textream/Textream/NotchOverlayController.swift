@@ -16,6 +16,119 @@ final class PrompterPanel: NSPanel {
     override var canBecomeKey: Bool { true }
 }
 
+/// CNL: wide grips to resize the floating prompter. A borderless window's own
+/// resize edge is a few pixels wide, and dragging anywhere else moves the window,
+/// so resizing it was hard. Each grip keeps the window's top edge where it is.
+final class PrompterResizeHandle: NSView {
+    struct Edges: OptionSet {
+        let rawValue: Int
+        static let right = Edges(rawValue: 1)
+        static let bottom = Edges(rawValue: 2)
+        static let left = Edges(rawValue: 4)
+    }
+
+    // Clear of the bottom bar's buttons, which sit 16 points in and 12 up.
+    static let band: CGFloat = 10
+    static let corner: CGFloat = 16
+
+    let edges: Edges
+    private var startFrame = NSRect.zero
+    private var startMouse = NSPoint.zero
+
+    init(edges: Edges) {
+        self.edges = edges
+        super.init(frame: .zero)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override var mouseDownCanMoveWindow: Bool { false }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    override func resetCursorRects() {
+        let cursor: NSCursor
+        if edges == [.bottom] {
+            cursor = .resizeUpDown
+        } else if edges == [.right] || edges == [.left] {
+            cursor = .resizeLeftRight
+        } else {
+            cursor = .crosshair
+        }
+        addCursorRect(bounds, cursor: cursor)
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        guard let window else { return }
+        startFrame = window.frame
+        startMouse = NSEvent.mouseLocation
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard let window else { return }
+        let mouse = NSEvent.mouseLocation
+        let dx = mouse.x - startMouse.x
+        let dy = mouse.y - startMouse.y
+        var frame = startFrame
+        if edges.contains(.right) { frame.size.width = startFrame.width + dx }
+        if edges.contains(.left) { frame.size.width = startFrame.width - dx }
+        if edges.contains(.bottom) { frame.size.height = startFrame.height - dy }
+        frame.size.width = min(max(frame.size.width, window.minSize.width), window.maxSize.width)
+        frame.size.height = min(max(frame.size.height, window.minSize.height), window.maxSize.height)
+        if edges.contains(.left) { frame.origin.x = startFrame.maxX - frame.size.width }
+        frame.origin.y = startFrame.maxY - frame.size.height
+        window.setFrame(frame, display: true)
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        // Nearly clear, but not quite: a fully clear pixel of a clear window lets
+        // the click through to whatever is behind it.
+        NSColor.black.withAlphaComponent(0.02).setFill()
+        bounds.fill()
+        guard edges.contains(.right) && edges.contains(.bottom) else { return }
+        // The corner grip: three short diagonal lines.
+        let grip = NSBezierPath()
+        for i in 0..<3 {
+            let inset = 5 + CGFloat(i) * 3.5
+            grip.move(to: NSPoint(x: bounds.maxX - inset, y: bounds.minY + 3))
+            grip.line(to: NSPoint(x: bounds.maxX - 3, y: bounds.minY + inset))
+        }
+        grip.lineWidth = 1.5
+        grip.lineCapStyle = .round
+        NSColor.white.withAlphaComponent(0.55).setStroke()
+        grip.stroke()
+    }
+
+    /// The prompter's view with grips on its left, right and bottom edges and in
+    /// its bottom-right corner, sized to `size`.
+    static func wrap(_ content: NSView, size: NSSize) -> NSView {
+        let container = NSView(frame: NSRect(origin: .zero, size: size))
+        content.frame = container.bounds
+        content.autoresizingMask = [.width, .height]
+        container.addSubview(content)
+
+        let b = band, c = corner, w = size.width, h = size.height
+        let right = PrompterResizeHandle(edges: [.right])
+        right.frame = NSRect(x: w - b, y: c, width: b, height: max(0, h - c))
+        right.autoresizingMask = [.minXMargin, .height]
+        let left = PrompterResizeHandle(edges: [.left])
+        left.frame = NSRect(x: 0, y: c, width: b, height: max(0, h - c))
+        left.autoresizingMask = [.maxXMargin, .height]
+        let bottom = PrompterResizeHandle(edges: [.bottom])
+        bottom.frame = NSRect(x: 0, y: 0, width: max(0, w - c), height: b)
+        bottom.autoresizingMask = [.width, .maxYMargin]
+        let cornerGrip = PrompterResizeHandle(edges: [.right, .bottom])
+        cornerGrip.frame = NSRect(x: w - c, y: 0, width: c, height: c)
+        cornerGrip.autoresizingMask = [.minXMargin, .maxYMargin]
+        for handle in [right, left, bottom, cornerGrip] {
+            container.addSubview(handle)
+        }
+        return container
+    }
+}
+
 @Observable
 class NotchFrameTracker {
     var visibleHeight: CGFloat = 37 {
@@ -406,10 +519,14 @@ class NotchOverlayController: NSObject {
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.ignoresMouseEvents = false
         panel.isMovableByWindowBackground = true
-        panel.minSize = NSSize(width: 280, height: panelHeight)
-        panel.maxSize = NSSize(width: 500, height: panelHeight + 350)
+        // CNL: as big as the screen (it stopped at 500 wide), with grips to resize
+        // it, and back where it was left, at the size it had.
+        panel.minSize = NSSize(width: 280, height: min(panelHeight, 120))
+        panel.maxSize = NSSize(width: max(screenFrame.width, 280), height: max(screenFrame.height, panelHeight))
         panel.sharingType = NotchSettings.shared.hideFromScreenShare ? .none : .readOnly
-        panel.contentView = contentView
+        panel.contentView = PrompterResizeHandle.wrap(contentView, size: NSSize(width: panelWidth, height: panelHeight))
+        _ = panel.setFrameUsingName("CNLFloatingPrompter")
+        _ = panel.setFrameAutosaveName("CNLFloatingPrompter")
 
         panel.orderFrontRegardless()
         self.panel = panel
