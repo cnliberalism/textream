@@ -10,7 +10,8 @@ import SwiftUI
 // MARK: - Font Size Preset
 
 enum FontSizePreset: String, CaseIterable, Identifiable {
-    case xs, sm, lg, xl
+    // CNL: four bigger sizes, for the studio's field monitor (Colin, 2026-10-27).
+    case xs, sm, lg, xl, xl2, xl3, xl4, xl5
 
     var id: String { rawValue }
 
@@ -20,6 +21,10 @@ enum FontSizePreset: String, CaseIterable, Identifiable {
         case .sm: return "SM"
         case .lg: return "LG"
         case .xl: return "XL"
+        case .xl2: return "2XL"
+        case .xl3: return "3XL"
+        case .xl4: return "4XL"
+        case .xl5: return "5XL"
         }
     }
 
@@ -29,7 +34,17 @@ enum FontSizePreset: String, CaseIterable, Identifiable {
         case .sm: return 16
         case .lg: return 20
         case .xl: return 24
+        case .xl2: return 32
+        case .xl3: return 44
+        case .xl4: return 60
+        case .xl5: return 80
         }
+    }
+
+    /// CNL: how much bigger than its own automatic size the fullscreen prompter's
+    /// text is. XL and smaller leave it as it was.
+    var fullscreenScale: CGFloat {
+        max(1, pointSize / 24)
     }
 }
 
@@ -504,7 +519,7 @@ class NotchSettings {
     }
 
     static let takeBreakOptions = [1, 2, 3, 5]
-    static let takeFontSizeRange: ClosedRange<Double> = 72...480
+    static let takeFontSizeRange: ClosedRange<Double> = 72...800
     static let defaultTakeMaxFontSize: Double = 320
 
     var fullscreenScreenID: UInt32 {

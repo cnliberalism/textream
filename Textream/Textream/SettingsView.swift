@@ -20,7 +20,13 @@ class NotchPreviewController {
     private var cursorTimer: AnyCancellable?
     private var trackingSettings: NotchSettings?
 
+    /// CNL: off. It put a second, sample prompter at the top of the screen
+    /// whenever Settings opened (Colin, 2026-10-27: "another teleprompter window
+    /// randomly opens up").
+    static let isEnabled = false
+
     func show(settings: NotchSettings) {
+        guard Self.isEnabled else { return }
         // If panel already exists, just re-show it
         if let panel {
             panel.orderFront(nil)
@@ -583,7 +589,7 @@ struct SettingsView: View {
                         } label: {
                             VStack(spacing: 6) {
                                 Text("Ag")
-                                    .font(Font(settings.fontFamilyPreset.font(size: preset.pointSize * 0.7)))
+                                    .font(Font(settings.fontFamilyPreset.font(size: min(preset.pointSize * 0.7, 22))))
                                     .foregroundStyle(settings.fontSizePreset == preset ? Color.accentColor : .primary)
                                 Text(preset.label)
                                     .font(.system(size: 11, weight: .medium))

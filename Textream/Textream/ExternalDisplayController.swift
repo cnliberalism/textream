@@ -263,7 +263,8 @@ struct ExternalDisplayView: View {
 
     private var prompterView: some View {
         GeometryReader { geo in
-            let fontSize = max(48, min(96, geo.size.width / 14))
+            // CNL: 2XL to 5XL make it bigger again, for the field monitor.
+            let fontSize = max(48, min(96, geo.size.width / 14)) * NotchSettings.shared.fontSizePreset.fullscreenScale
             let hPad = max(40, geo.size.width * 0.08)
 
             VStack(spacing: 0) {
