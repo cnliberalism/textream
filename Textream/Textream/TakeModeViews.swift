@@ -126,7 +126,8 @@ struct TakeTextView: View {
             Text(attributedTake(fontSize: fontSize))
                 .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
-                .frame(width: geo.size.width, height: geo.size.height, alignment: .center)
+                // CNL: from the top, by the camera, not centered (Colin, 2026-10-27).
+                .frame(width: geo.size.width, height: geo.size.height, alignment: .top)
         }
     }
 

@@ -16,6 +16,34 @@ final class PrompterPanel: NSPanel {
     override var canBecomeKey: Bool { true }
 }
 
+/// CNL: a bar along the top of the floating prompter to move it by. Dragging the
+/// window's background moved it too, but the text fills most of it and takes the
+/// drag itself.
+final class PrompterMoveHandle: NSView {
+    static let height: CGFloat = 18
+
+    override var mouseDownCanMoveWindow: Bool { false }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    override func resetCursorRects() {
+        addCursorRect(bounds, cursor: .openHand)
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        window?.performDrag(with: event)
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.black.withAlphaComponent(0.02).setFill()
+        bounds.fill()
+        // A grabber, centered at the top.
+        let pill = NSRect(x: bounds.midX - 22, y: bounds.maxY - 9, width: 44, height: 5)
+        NSColor.white.withAlphaComponent(0.4).setFill()
+        NSBezierPath(roundedRect: pill, xRadius: 2.5, yRadius: 2.5).fill()
+    }
+}
+
 /// CNL: wide grips to resize the floating prompter. A borderless window's own
 /// resize edge is a few pixels wide, and dragging anywhere else moves the window,
 /// so resizing it was hard. Each grip keeps the window's top edge where it is.
@@ -101,8 +129,8 @@ final class PrompterResizeHandle: NSView {
         grip.stroke()
     }
 
-    /// The prompter's view with grips on its left, right and bottom edges and in
-    /// its bottom-right corner, sized to `size`.
+    /// The prompter's view with a bar along the top to move it by, and grips on its
+    /// left, right and bottom edges and in its bottom-right corner, sized to `size`.
     static func wrap(_ content: NSView, size: NSSize) -> NSView {
         let container = NSView(frame: NSRect(origin: .zero, size: size))
         content.frame = container.bounds
@@ -125,6 +153,11 @@ final class PrompterResizeHandle: NSView {
         for handle in [right, left, bottom, cornerGrip] {
             container.addSubview(handle)
         }
+        let top = PrompterMoveHandle()
+        let th = PrompterMoveHandle.height
+        top.frame = NSRect(x: b, y: max(0, h - th), width: max(0, w - 2 * b), height: th)
+        top.autoresizingMask = [.width, .minYMargin]
+        container.addSubview(top)
         return container
     }
 }

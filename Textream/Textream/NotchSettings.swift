@@ -581,7 +581,14 @@ class NotchSettings {
         self.hideFromScreenShare = UserDefaults.standard.object(forKey: "hideFromScreenShare") as? Bool ?? true
         self.showElapsedTime = UserDefaults.standard.object(forKey: "showElapsedTime") as? Bool ?? true
         self.keepScreenAwake = UserDefaults.standard.object(forKey: "keepScreenAwake") as? Bool ?? false
-        self.readingPosition = ReadingPosition(rawValue: UserDefaults.standard.string(forKey: "readingPosition") ?? "") ?? .centered
+        // CNL: the line being read sits near the top, by the camera (Colin, 2026-10-27:
+        // "so my eyes stay at the top of the screen and it looks like I am looking
+        // into the camera"). Set once, so a later choice in Settings sticks.
+        if !UserDefaults.standard.bool(forKey: "cnlReadingNearTopOnce") {
+            UserDefaults.standard.set(ReadingPosition.nearTop.rawValue, forKey: "readingPosition")
+            UserDefaults.standard.set(true, forKey: "cnlReadingNearTopOnce")
+        }
+        self.readingPosition = ReadingPosition(rawValue: UserDefaults.standard.string(forKey: "readingPosition") ?? "") ?? .nearTop
         self.showParagraphDividers = UserDefaults.standard.object(forKey: "showParagraphDividers") as? Bool ?? false
         self.showLastSpokenWords = UserDefaults.standard.object(forKey: "showLastSpokenWords") as? Bool ?? true
         self.selectedMicUID = UserDefaults.standard.string(forKey: "selectedMicUID") ?? ""

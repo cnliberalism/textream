@@ -1602,7 +1602,7 @@ struct SettingsView: View {
         settings.showElapsedTime = true
         settings.hideFromScreenShare = true
         settings.keepScreenAwake = false
-        settings.readingPosition = .centered
+        settings.readingPosition = .nearTop
         settings.showParagraphDividers = false
         settings.showLastSpokenWords = true
         settings.selectedMicUID = ""
