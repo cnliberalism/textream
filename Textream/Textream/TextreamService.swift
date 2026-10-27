@@ -141,16 +141,51 @@ class TextreamService: NSObject, ObservableObject {
         presentText(text)
     }
 
-    /// Takes sent by CNL's video engine (textream-cnl://read?mode=takes): played
-    /// one at a time as a take session, whatever the Take Mode setting, without
-    /// touching the editor's pages.
-    func readTakes(_ takes: [String]) {
+    /// A link from CNL's video engine (textream-cnl://…): it opens the whole app,
+    /// not the quick read the stock textream:// links get.
+    static func isEngineLink(_ link: String) -> Bool {
+        link.lowercased().hasPrefix("textream-cnl:")
+    }
+
+    /// The script sent by CNL's video engine (textream-cnl://read?mode=takes), a
+    /// take per page. It goes into the editor, so the window shows exactly what was
+    /// sent and Play runs it again (after a change of overlay in Settings, say), and
+    /// then starts in takes the way Play does. Turns Read in Takes on.
+    func loadTakes(_ takes: [String]) {
+        let settings = NotchSettings.shared
+        // A take's cue sits on its own line; split by every line, it would be a take of its own.
         let clean = takes
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
-        guard let first = clean.first else { return }
-        takeSession = TakeSession(takes: clean, index: 0)
-        presentText(first)
+            .map { settings.takeSplit == .everyLine ? $0.replacingOccurrences(of: "\n", with: " ") : $0 }
+        guard !clean.isEmpty else { return }
+        // The same script while it's on screen (a link can arrive twice): once is enough.
+        if clean == pages && overlayController.isShowing { return }
+        // The welcome page the editor starts with isn't work to save.
+        let onlyWelcome = pages.count == 1 && pages[0].hasPrefix("Welcome to Textream!")
+        guard onlyWelcome || confirmDiscardIfNeeded() else { return }
+        let wasShowing = overlayController.isShowing
+        if wasShowing { overlayController.dismiss() }
+
+        pages = clean
+        savedPages = clean
+        currentPageIndex = 0
+        readPages.removeAll()
+        currentFileURL = nil
+        settings.takeMode = true
+
+        launchedExternally = false
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+        for window in NSApp.windows where !(window is NSPanel) {
+            window.makeKeyAndOrderFront(nil)
+        }
+        // Started by the editor, as Play starts it, once its window is up and any
+        // prompter that was running has closed (that takes 0.4 s). If the editor
+        // window isn't open, the script waits there for Play.
+        DispatchQueue.main.asyncAfter(deadline: .now() + (wasShowing ? 0.8 : 0.3)) {
+            NotificationCenter.default.post(name: .startPrompter, object: nil)
+        }
     }
 
     private func presentText(_ text: String) {
@@ -647,7 +682,7 @@ class TextreamService: NSObject, ObservableObject {
     // URL scheme handler: textream://read?text=Hello%20World
     // CNL's video engine sends textream-cnl://read?text=…&mode=takes: its own
     // scheme, so the link can't open the stock Textream, and the script as takes
-    // with a blank line between them.
+    // with a blank line between them, loaded into the editor (loadTakes).
     func handleURL(_ url: URL) {
         guard url.scheme == "textream" || url.scheme == "textream-cnl" else { return }
 
@@ -656,7 +691,7 @@ class TextreamService: NSObject, ObservableObject {
                let textParam = components.queryItems?.first(where: { $0.name == "text" })?.value {
                 let mode = components.queryItems?.first(where: { $0.name == "mode" })?.value
                 if mode == "takes" {
-                    readTakes(TextreamService.splitIntoTakes(textParam, mode: .blankLine))
+                    loadTakes(TextreamService.splitIntoTakes(textParam, mode: .blankLine))
                 } else {
                     readText(textParam)
                 }

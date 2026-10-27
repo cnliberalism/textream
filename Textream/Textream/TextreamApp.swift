@@ -24,7 +24,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         NSWindow.allowsAutomaticWindowTabbing = false
         let launchedByURL: Bool
         if let event = NSAppleEventManager.shared().currentAppleEvent {
-            launchedByURL = event.eventClass == kInternetEventClass
+            // A link from CNL's video engine opens the whole app, not the quick read.
+            let link = event.paramDescriptor(forKeyword: AEKeyword(keyDirectObject))?.stringValue ?? ""
+            launchedByURL = event.eventClass == kInternetEventClass && !TextreamService.isEngineLink(link)
         } else {
             launchedByURL = false
         }
@@ -131,6 +133,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     window.makeKeyAndOrderFront(nil)
                 }
                 NSApp.activate(ignoringOtherApps: true)
+            } else if TextreamService.isEngineLink(url.absoluteString) {
+                // CNL's video engine: the script goes into the editor (loadTakes),
+                // with the app in the Dock and Settings to hand.
+                TextreamService.shared.handleURL(url)
             } else {
                 let wasExternal = TextreamService.shared.launchedExternally
                 TextreamService.shared.launchedExternally = true
