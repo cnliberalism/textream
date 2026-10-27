@@ -141,6 +141,18 @@ class TextreamService: NSObject, ObservableObject {
         presentText(text)
     }
 
+    /// Takes sent by CNL's video engine (textream-cnl://read?mode=takes): played
+    /// one at a time as a take session, whatever the Take Mode setting, without
+    /// touching the editor's pages.
+    func readTakes(_ takes: [String]) {
+        let clean = takes
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard let first = clean.first else { return }
+        takeSession = TakeSession(takes: clean, index: 0)
+        presentText(first)
+    }
+
     private func presentText(_ text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
@@ -633,13 +645,21 @@ class TextreamService: NSObject, ObservableObject {
     }
 
     // URL scheme handler: textream://read?text=Hello%20World
+    // CNL's video engine sends textream-cnl://read?text=…&mode=takes: its own
+    // scheme, so the link can't open the stock Textream, and the script as takes
+    // with a blank line between them.
     func handleURL(_ url: URL) {
-        guard url.scheme == "textream" else { return }
+        guard url.scheme == "textream" || url.scheme == "textream-cnl" else { return }
 
         if url.host == "read" || url.path == "/read" {
             if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
                let textParam = components.queryItems?.first(where: { $0.name == "text" })?.value {
-                readText(textParam)
+                let mode = components.queryItems?.first(where: { $0.name == "mode" })?.value
+                if mode == "takes" {
+                    readTakes(TextreamService.splitIntoTakes(textParam, mode: .blankLine))
+                } else {
+                    readText(textParam)
+                }
             }
         }
     }

@@ -48,6 +48,7 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>textream</string>
+				<string>textream-cnl</string>
 			</array>
 		</dict>
 	</array>
