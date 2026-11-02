@@ -497,15 +497,14 @@ class NotchSettings {
         didSet { UserDefaults.standard.set(takeBreakSeconds, forKey: "takeBreakSeconds") }
     }
 
-    /// Upper limit for take text size. Each take is scaled to the largest
-    /// size that fits the screen, up to this cap.
-    var takeMaxFontSize: Double {
-        didSet { UserDefaults.standard.set(takeMaxFontSize, forKey: "takeMaxFontSize") }
+    /// Text size for takes on the fullscreen teleprompter.
+    var takeFontSize: Double {
+        didSet { UserDefaults.standard.set(takeFontSize, forKey: "takeFontSize") }
     }
 
     static let takeBreakOptions = [1, 2, 3, 5]
-    static let takeFontSizeRange: ClosedRange<Double> = 72...480
-    static let defaultTakeMaxFontSize: Double = 320
+    static let takeFontSizeRange: ClosedRange<Double> = 72...320
+    static let defaultTakeFontSize: Double = 160
 
     var fullscreenScreenID: UInt32 {
         didSet { UserDefaults.standard.set(Int(fullscreenScreenID), forKey: "fullscreenScreenID") }
@@ -595,10 +594,10 @@ class NotchSettings {
         self.takeSplit = TakeSplit(rawValue: UserDefaults.standard.string(forKey: "takeSplit") ?? "") ?? .blankLine
         let savedBreak = UserDefaults.standard.integer(forKey: "takeBreakSeconds")
         self.takeBreakSeconds = NotchSettings.takeBreakOptions.contains(savedBreak) ? savedBreak : 3
-        let savedTakeFont = UserDefaults.standard.double(forKey: "takeMaxFontSize")
-        self.takeMaxFontSize = NotchSettings.takeFontSizeRange.contains(savedTakeFont)
+        let savedTakeFont = UserDefaults.standard.double(forKey: "takeFontSize")
+        self.takeFontSize = NotchSettings.takeFontSizeRange.contains(savedTakeFont)
             ? savedTakeFont
-            : NotchSettings.defaultTakeMaxFontSize
+            : NotchSettings.defaultTakeFontSize
         let savedFullscreenScreenID = UserDefaults.standard.integer(forKey: "fullscreenScreenID")
         self.fullscreenScreenID = UInt32(savedFullscreenScreenID)
         self.browserServerEnabled = UserDefaults.standard.object(forKey: "browserServerEnabled") as? Bool ?? false

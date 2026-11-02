@@ -1130,7 +1130,7 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Read in Takes")
                             .font(.system(size: 13, weight: .medium))
-                        Text("Show one take at a time, as large as the screen allows, with a black pause and countdown between takes. Works best with the Fullscreen overlay.")
+                        Text("Scroll one take at a time in large text, with a black pause and countdown between takes. Works best with the Fullscreen overlay.")
                             .font(.system(size: 11))
                             .foregroundStyle(.secondary)
                     }
@@ -1167,16 +1167,16 @@ struct SettingsView: View {
 
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
-                            Text("Largest Text Size")
+                            Text("Take Text Size")
                                 .font(.system(size: 13))
                             Spacer()
-                            Text("\(Int(settings.takeMaxFontSize)) pt")
+                            Text("\(Int(settings.takeFontSize)) pt")
                                 .font(.system(size: 12))
                                 .monospacedDigit()
                                 .foregroundStyle(.secondary)
                         }
-                        Slider(value: $settings.takeMaxFontSize, in: NotchSettings.takeFontSizeRange, step: 8)
-                        Text("Each take is scaled to fill the screen, up to this size. Long takes shrink to fit.")
+                        Slider(value: $settings.takeFontSize, in: NotchSettings.takeFontSizeRange, step: 4)
+                        Text("Text size on the fullscreen teleprompter during takes. A word too wide for the screen shrinks the take to fit.")
                             .font(.system(size: 11))
                             .foregroundStyle(.secondary)
                     }
@@ -1611,7 +1611,7 @@ struct SettingsView: View {
         settings.takeMode = false
         settings.takeSplit = .blankLine
         settings.takeBreakSeconds = 3
-        settings.takeMaxFontSize = NotchSettings.defaultTakeMaxFontSize
+        settings.takeFontSize = NotchSettings.defaultTakeFontSize
         settings.browserServerEnabled = false
         settings.browserServerPort = 7373
         settings.directorModeEnabled = false
