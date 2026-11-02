@@ -282,6 +282,16 @@ class TextreamService: NSObject, ObservableObject {
         jumpToPage(index: playbackIndex)
     }
 
+    /// CNL: jump straight back to the first word of the script (the first
+    /// take or page that has text), from anywhere, including the Done screen.
+    func restartFromTop() {
+        let source = playbackPages
+        guard let first = source.firstIndex(where: {
+            !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }) else { return }
+        jumpToPage(index: first)
+    }
+
     func jumpToPage(index: Int) {
         let source = playbackPages
         guard index >= 0 && index < source.count else { return }

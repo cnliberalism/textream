@@ -616,6 +616,11 @@ class NotchOverlayController: NSObject {
             }
             // Take Mode keys (CNL). Arrow and Page keys cover most presentation clickers.
             let modifiers = event.modifierFlags.intersection([.command, .option, .control, .shift])
+            // CNL: Home jumps back to the top of the script
+            if event.keyCode == 115 {
+                TextreamService.shared.restartFromTop()
+                return nil
+            }
             // CNL: + / − (with or without ⌘) resize the text while prompting
             let sizeKey = event.charactersIgnoringModifiers ?? ""
             if modifiers.subtracting([.command, .shift]).isEmpty {

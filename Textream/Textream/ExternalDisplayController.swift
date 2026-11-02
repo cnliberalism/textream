@@ -337,6 +337,25 @@ struct ExternalDisplayView: View {
                         Spacer()
                     }
 
+                    // CNL: back to the first word, instantly
+                    Button {
+                        TextreamService.shared.restartFromTop()
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "arrow.up.to.line")
+                                .font(.system(size: 16, weight: .bold))
+                            Text("Top")
+                                .font(.system(size: 16, weight: .bold))
+                        }
+                        .foregroundStyle(.white.opacity(0.85))
+                        .padding(.horizontal, 16)
+                        .frame(height: 40)
+                        .background(.white.opacity(0.15))
+                        .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Back to the top of the script (Home key)")
+
                     if listeningMode != .classic {
                         Button {
                             if speechRecognizer.isListening {
@@ -395,6 +414,25 @@ struct ExternalDisplayView: View {
                 Text("Done!")
                     .font(.system(size: 32, weight: .bold))
                     .foregroundStyle(.white)
+
+                // CNL: go again from the first word
+                Button {
+                    TextreamService.shared.restartFromTop()
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "arrow.up.to.line")
+                            .font(.system(size: 28, weight: .bold))
+                        Text("Back to Top")
+                            .font(.system(size: 28, weight: .bold))
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 32)
+                    .padding(.vertical, 16)
+                    .background(Color.accentColor)
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 12)
             }
         }
         .transition(.scale.combined(with: .opacity))
