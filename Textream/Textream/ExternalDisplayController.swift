@@ -198,7 +198,7 @@ struct ExternalDisplayView: View {
             }
         }
         .overlay(alignment: .topLeading) {
-            if content.isTake {
+            if content.isTake && content.pageCount > 1 {
                 takeStatusView
                     .padding(.top, 20)
                     .padding(.leading, 40)
