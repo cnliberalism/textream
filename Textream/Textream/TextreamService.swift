@@ -101,6 +101,17 @@ class TextreamService: NSObject, ObservableObject {
         }
         var takes: [String] = []
         var startIndex = 0
+
+        if settings.takeFlow == .continuous, !pages.isEmpty {
+            // One unbroken scroll: the whole script, from the selected page on
+            let script = pages[min(currentPageIndex, pages.count - 1)...]
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+                .joined(separator: "\n\n")
+            takeSession = script.isEmpty ? nil : TakeSession(takes: [script], index: 0)
+            return
+        }
+
         for (i, page) in pages.enumerated() {
             if i == currentPageIndex { startIndex = takes.count }
             takes.append(contentsOf: Self.splitIntoTakes(page, mode: settings.takeSplit))

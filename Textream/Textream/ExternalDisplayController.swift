@@ -193,14 +193,12 @@ struct ExternalDisplayView: View {
                 } else {
                     doneView
                 }
-            } else if content.isTake {
-                takePrompterView
             } else {
                 prompterView
             }
         }
         .overlay(alignment: .topLeading) {
-            if content.isTake {
+            if content.isTake && content.pageCount > 1 {
                 takeStatusView
                     .padding(.top, 20)
                     .padding(.leading, 40)
@@ -263,12 +261,23 @@ struct ExternalDisplayView: View {
 
     private var prompterView: some View {
         GeometryReader { geo in
-            // CNL: 2XL to 5XL make it bigger again, for the field monitor.
-            let fontSize = max(48, min(96, geo.size.width / 14)) * NotchSettings.shared.fontSizePreset.fullscreenScale
-            let hPad = max(40, geo.size.width * 0.08)
+            // Take Mode (CNL) uses its own, much larger text size, shrunk
+            // only when a word would otherwise be wider than the screen.
+            let hPad = content.isTake
+                ? max(40, geo.size.width * 0.05)
+                : max(40, geo.size.width * 0.08)
+            let fontSize = content.isTake
+                ? TakeFontSizing.size(
+                    words: words,
+                    preferred: CGFloat(NotchSettings.shared.takeFontSize),
+                    availableWidth: geo.size.width - hPad * 2
+                )
+                // CNL: 2XL to 5XL make it bigger again, for the field monitor.
+                : max(48, min(96, geo.size.width / 14)) * NotchSettings.shared.fontSizePreset.fullscreenScale
 
             VStack(spacing: 0) {
-                Spacer().frame(height: 20)
+                // Leave room for the take counter in the top corner
+                Spacer().frame(height: content.isTake ? 64 : 20)
 
                 SpeechScrollView(
                     words: words,
@@ -299,7 +308,9 @@ struct ExternalDisplayView: View {
                     ? content.paragraphBreakBeforeWordIndices
                     : []
             )
-            .id(content.currentPageIndex)
+            // pageGeneration also changes when the same take is redone,
+            // so the scroll view starts fresh from the first word.
+            .id("\(content.currentPageIndex)-\(content.pageGeneration)")
             .padding(.horizontal, hPad)
 
                 Spacer().frame(height: 20)
@@ -420,33 +431,6 @@ struct ExternalDisplayView: View {
 // MARK: - Take Mode (CNL)
 
 extension ExternalDisplayView {
-    /// One take, scaled to fill the screen. Tracking and timing work exactly
-    /// as in the regular prompter; only the presentation changes.
-    var takePrompterView: some View {
-        GeometryReader { geo in
-            let hPad = max(40, geo.size.width * 0.06)
-            let topPad = max(70, geo.size.height * 0.08)
-            let bottomPad = max(40, geo.size.height * 0.05)
-
-            TakeTextView(
-                words: words,
-                paragraphBreakBeforeWordIndices: content.paragraphBreakBeforeWordIndices,
-                highlightedCharCount: effectiveCharCount,
-                highlightColor: NotchSettings.shared.fontColorPreset.color,
-                cueColor: NotchSettings.shared.cueColorPreset.color,
-                cueUnreadOpacity: NotchSettings.shared.cueBrightness.unreadOpacity,
-                cueReadOpacity: NotchSettings.shared.cueBrightness.readOpacity,
-                fontFamily: NotchSettings.shared.fontFamilyPreset,
-                maxFontSize: CGFloat(NotchSettings.shared.takeMaxFontSize)
-            )
-            .padding(.horizontal, hPad)
-            .padding(.top, topPad)
-            .padding(.bottom, bottomPad)
-            .id(content.pageGeneration)
-            .transition(.opacity)
-        }
-    }
-
     /// The pause between takes: a black screen with the same countdown the
     /// app uses for Auto Next Page, sized up for a monitor across the room.
     var takeBreakView: some View {

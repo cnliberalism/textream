@@ -5,6 +5,7 @@
 //  Created by Fatih Kadir Akın on 8.02.2026.
 //
 
+import AppKit
 import SwiftUI
 
 // MARK: - Font Size Preset
@@ -67,6 +68,29 @@ enum TakeSplit: String, CaseIterable, Identifiable {
         switch self {
         case .blankLine: return "A blank line between blocks starts a new take."
         case .everyLine: return "Each line of the script is its own take."
+        }
+    }
+}
+
+// MARK: - Take Flow (CNL Take Mode)
+
+/// Whether the script plays as one continuous scroll or pauses between takes.
+enum TakeFlow: String, CaseIterable, Identifiable {
+    case continuous, pauses
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .continuous: return "Continuous"
+        case .pauses:     return "Pause Between Takes"
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .continuous: return "The whole script scrolls in one unbroken flow."
+        case .pauses:     return "Each take ends with a black screen and countdown before the next one starts."
         }
     }
 }
@@ -503,6 +527,10 @@ class NotchSettings {
         didSet { UserDefaults.standard.set(takeMode, forKey: "takeMode") }
     }
 
+    var takeFlow: TakeFlow {
+        didSet { UserDefaults.standard.set(takeFlow.rawValue, forKey: "takeFlow") }
+    }
+
     var takeSplit: TakeSplit {
         didSet { UserDefaults.standard.set(takeSplit.rawValue, forKey: "takeSplit") }
     }
@@ -512,18 +540,51 @@ class NotchSettings {
         didSet { UserDefaults.standard.set(takeBreakSeconds, forKey: "takeBreakSeconds") }
     }
 
-    /// Upper limit for take text size. Each take is scaled to the largest
-    /// size that fits the screen, up to this cap.
-    var takeMaxFontSize: Double {
-        didSet { UserDefaults.standard.set(takeMaxFontSize, forKey: "takeMaxFontSize") }
+    /// Text size for takes on the fullscreen teleprompter.
+    var takeFontSize: Double {
+        didSet { UserDefaults.standard.set(takeFontSize, forKey: "takeFontSize") }
     }
 
     static let takeBreakOptions = [1, 2, 3, 5]
     static let takeFontSizeRange: ClosedRange<Double> = 72...800
-    static let defaultTakeMaxFontSize: Double = 320
+    static let defaultTakeFontSize: Double = 200
 
     var fullscreenScreenID: UInt32 {
-        didSet { UserDefaults.standard.set(Int(fullscreenScreenID), forKey: "fullscreenScreenID") }
+        didSet {
+            UserDefaults.standard.set(Int(fullscreenScreenID), forKey: "fullscreenScreenID")
+            // Remember the display's name too: macOS can hand a display a new
+            // ID after a reboot or reconnect, but its name stays the same.
+            if let name = NSScreen.screens.first(where: { $0.displayID == fullscreenScreenID })?.localizedName {
+                teleprompterScreenName = name
+            }
+        }
+    }
+
+    // MARK: Teleprompter display (CNL)
+
+    /// Always open the prompter fullscreen on the teleprompter display,
+    /// whatever overlay mode is selected.
+    var alwaysFullscreen: Bool {
+        didSet { UserDefaults.standard.set(alwaysFullscreen, forKey: "alwaysFullscreen") }
+    }
+
+    var teleprompterScreenName: String {
+        didSet { UserDefaults.standard.set(teleprompterScreenName, forKey: "teleprompterScreenName") }
+    }
+
+    /// The display the fullscreen prompter belongs on: the saved display by
+    /// ID, then by name, then any screen other than the main one.
+    func teleprompterScreen() -> NSScreen? {
+        let screens = NSScreen.screens
+        if fullscreenScreenID != 0,
+           let match = screens.first(where: { $0.displayID == fullscreenScreenID }) {
+            return match
+        }
+        if !teleprompterScreenName.isEmpty,
+           let match = screens.first(where: { $0.localizedName == teleprompterScreenName }) {
+            return match
+        }
+        return screens.first(where: { $0 != NSScreen.main })
     }
 
     var browserServerEnabled: Bool {
@@ -614,13 +675,16 @@ class NotchSettings {
             ? savedDelay
             : 3
         self.takeMode = UserDefaults.standard.object(forKey: "takeMode") as? Bool ?? false
+        self.takeFlow = TakeFlow(rawValue: UserDefaults.standard.string(forKey: "takeFlow") ?? "") ?? .continuous
         self.takeSplit = TakeSplit(rawValue: UserDefaults.standard.string(forKey: "takeSplit") ?? "") ?? .blankLine
         let savedBreak = UserDefaults.standard.integer(forKey: "takeBreakSeconds")
         self.takeBreakSeconds = NotchSettings.takeBreakOptions.contains(savedBreak) ? savedBreak : 3
-        let savedTakeFont = UserDefaults.standard.double(forKey: "takeMaxFontSize")
-        self.takeMaxFontSize = NotchSettings.takeFontSizeRange.contains(savedTakeFont)
+        let savedTakeFont = UserDefaults.standard.double(forKey: "takeFontSize")
+        self.takeFontSize = NotchSettings.takeFontSizeRange.contains(savedTakeFont)
             ? savedTakeFont
-            : NotchSettings.defaultTakeMaxFontSize
+            : NotchSettings.defaultTakeFontSize
+        self.alwaysFullscreen = UserDefaults.standard.object(forKey: "alwaysFullscreen") as? Bool ?? true
+        self.teleprompterScreenName = UserDefaults.standard.string(forKey: "teleprompterScreenName") ?? ""
         let savedFullscreenScreenID = UserDefaults.standard.integer(forKey: "fullscreenScreenID")
         self.fullscreenScreenID = UInt32(savedFullscreenScreenID)
         self.browserServerEnabled = UserDefaults.standard.object(forKey: "browserServerEnabled") as? Bool ?? false

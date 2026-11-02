@@ -929,6 +929,18 @@ struct SettingsView: View {
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
 
+                // CNL studio: lock the prompter to the teleprompter display
+                Toggle(isOn: $settings.alwaysFullscreen) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Always Fullscreen on Teleprompter Display")
+                            .font(.system(size: 13, weight: .medium))
+                        Text("Every session opens fullscreen on the display picked below, whatever mode is selected above. It follows that display if it is reconnected.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .toggleStyle(.checkbox)
+
                 if settings.overlayMode == .pinned {
                     Divider()
 
@@ -1041,10 +1053,10 @@ struct SettingsView: View {
                     }
                 }
 
-                if settings.overlayMode == .fullscreen {
+                if settings.overlayMode == .fullscreen || settings.alwaysFullscreen {
                     Divider()
 
-                    Text("Display")
+                    Text("Teleprompter Display")
                         .font(.system(size: 13, weight: .medium))
 
                     displayPicker(
@@ -1129,14 +1141,14 @@ struct SettingsView: View {
                 Divider()
 
                 // Take Mode (CNL)
-                Text("Take Mode")
+                Text("Studio Mode")
                     .font(.system(size: 13, weight: .semibold))
 
                 Toggle(isOn: $settings.takeMode) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Read in Takes")
+                        Text("Large Studio Text")
                             .font(.system(size: 13, weight: .medium))
-                        Text("Show one take at a time, as large as the screen allows, with a black pause and countdown between takes. Works best with the Fullscreen overlay.")
+                        Text("Scroll the script in large text on the fullscreen teleprompter, as one continuous flow or with pauses between takes.")
                             .font(.system(size: 11))
                             .foregroundStyle(.secondary)
                     }
@@ -1144,6 +1156,23 @@ struct SettingsView: View {
                 .toggleStyle(.checkbox)
 
                 if settings.takeMode {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Flow")
+                            .font(.system(size: 13))
+                        Picker("Flow", selection: $settings.takeFlow) {
+                            ForEach(TakeFlow.allCases) { flow in
+                                Text(flow.label).tag(flow)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                        Text(settings.takeFlow.description)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                if settings.takeMode && settings.takeFlow == .pauses {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Split Takes At")
                             .font(.system(size: 13))
@@ -1171,25 +1200,28 @@ struct SettingsView: View {
                         .labelsHidden()
                     }
 
+                    Text("While prompting: → or Page Down skips to the next take, ← or Page Up goes back one, R redoes the current take.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+
+                if settings.takeMode {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
-                            Text("Largest Text Size")
+                            Text("Text Size")
                                 .font(.system(size: 13))
                             Spacer()
-                            Text("\(Int(settings.takeMaxFontSize)) pt")
+                            Text("\(Int(settings.takeFontSize)) pt")
                                 .font(.system(size: 12))
                                 .monospacedDigit()
                                 .foregroundStyle(.secondary)
                         }
-                        Slider(value: $settings.takeMaxFontSize, in: NotchSettings.takeFontSizeRange, step: 8)
-                        Text("Each take is scaled to fill the screen, up to this size. Long takes shrink to fit.")
+                        Slider(value: $settings.takeFontSize, in: NotchSettings.takeFontSizeRange, step: 4)
+                        Text("Text size on the fullscreen teleprompter. If a word is too wide for the screen, the text shrinks just enough to fit it.")
                             .font(.system(size: 11))
                             .foregroundStyle(.secondary)
                     }
 
-                    Text("While prompting: → or Page Down skips to the next take, ← or Page Up goes back one, R redoes the current take.")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
                 }
             }
             .padding(16)
@@ -1600,6 +1632,8 @@ struct SettingsView: View {
         settings.overlayTransparencyOpacity = 0.85
         settings.followCursorWhenUndocked = false
         settings.fullscreenScreenID = 0
+        settings.alwaysFullscreen = true
+        settings.teleprompterScreenName = ""
         settings.externalDisplayMode = .off
         settings.externalScreenID = 0
         settings.mirrorAxis = .horizontal
@@ -1615,9 +1649,10 @@ struct SettingsView: View {
         settings.autoNextPage = false
         settings.autoNextPageDelay = 3
         settings.takeMode = false
+        settings.takeFlow = .continuous
         settings.takeSplit = .blankLine
         settings.takeBreakSeconds = 3
-        settings.takeMaxFontSize = NotchSettings.defaultTakeMaxFontSize
+        settings.takeFontSize = NotchSettings.defaultTakeFontSize
         settings.browserServerEnabled = false
         settings.browserServerPort = 7373
         settings.directorModeEnabled = false
@@ -1636,8 +1671,11 @@ struct SettingsView: View {
         if settings.pinnedScreenID == 0, let main = NSScreen.main {
             settings.pinnedScreenID = main.displayID
         }
-        if settings.fullscreenScreenID == 0, let main = NSScreen.main {
-            settings.fullscreenScreenID = main.displayID
+        if settings.fullscreenScreenID == 0,
+           let target = settings.teleprompterScreen() ?? NSScreen.main {
+            // Default to a screen other than the main one: in the studio,
+            // that is the teleprompter display
+            settings.fullscreenScreenID = target.displayID
         }
     }
 }

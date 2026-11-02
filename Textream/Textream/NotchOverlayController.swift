@@ -260,15 +260,10 @@ class NotchOverlayController: NSObject {
 
         let screenFrame = screen.frame
 
-        if settings.overlayMode == .fullscreen {
-            let fsScreen: NSScreen
-            if settings.fullscreenScreenID != 0,
-               let match = NSScreen.screens.first(where: { $0.displayID == settings.fullscreenScreenID }) {
-                fsScreen = match
-            } else {
-                fsScreen = screen
-            }
-            showFullscreen(settings: settings, screen: fsScreen)
+        let useFullscreen = settings.alwaysFullscreen || settings.overlayMode == .fullscreen
+
+        if useFullscreen {
+            showFullscreen(settings: settings, screen: settings.teleprompterScreen() ?? screen)
         } else if settings.overlayMode == .floating && settings.followCursorWhenUndocked {
             showFollowCursor(settings: settings, screen: screen)
         } else {
@@ -283,7 +278,7 @@ class NotchOverlayController: NSObject {
         }
 
         // Show floating stop button only in follow-cursor mode (panel ignores mouse events)
-        if settings.overlayMode == .floating && settings.followCursorWhenUndocked {
+        if !useFullscreen && settings.overlayMode == .floating && settings.followCursorWhenUndocked {
             showStopButton(on: screen)
         }
 
@@ -521,6 +516,20 @@ class NotchOverlayController: NSObject {
         panel.setFrame(screenFrame, display: true)
         panel.orderFrontRegardless()
         self.panel = panel
+
+        // If displays are plugged in, unplugged or rearranged mid-session,
+        // move the prompter back to fill the teleprompter display.
+        NotificationCenter.default
+            .publisher(for: NSApplication.didChangeScreenParametersNotification)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self, let panel = self.panel,
+                      let target = NotchSettings.shared.teleprompterScreen() ?? panel.screen ?? NSScreen.main
+                else { return }
+                panel.setFrame(target.frame, display: true)
+                panel.orderFrontRegardless()
+            }
+            .store(in: &cancellables)
 
         installKeyMonitor()
     }
