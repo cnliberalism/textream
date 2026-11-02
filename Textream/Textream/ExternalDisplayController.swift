@@ -261,19 +261,20 @@ struct ExternalDisplayView: View {
 
     private var prompterView: some View {
         GeometryReader { geo in
-            // Take Mode (CNL) uses its own, much larger text size, shrunk
-            // only when a word would otherwise be wider than the screen.
-            let hPad = content.isTake
+            let hPad: CGFloat = content.isTake
                 ? max(40, geo.size.width * 0.05)
                 : max(40, geo.size.width * 0.08)
-            let fontSize = content.isTake
-                ? TakeFontSizing.size(
-                    words: words,
-                    preferred: CGFloat(NotchSettings.shared.takeFontSize),
-                    availableWidth: geo.size.width - hPad * 2
-                )
-                // CNL: 2XL to 5XL make it bigger again, for the field monitor.
-                : max(48, min(96, geo.size.width / 14)) * NotchSettings.shared.fontSizePreset.fullscreenScale
+            // CNL: one size control for everything. The Size setting in
+            // Appearance (or + / − while prompting) scales the text; 2XL to 5XL
+            // make it bigger for the field monitor. It shrinks only if a word
+            // would otherwise be wider than the screen.
+            let baseSize: CGFloat = max(48, min(96, geo.size.width / 14))
+            let preferredSize: CGFloat = baseSize * NotchSettings.shared.fontSizePreset.fullscreenScale
+            let fontSize: CGFloat = TakeFontSizing.size(
+                words: words,
+                preferred: preferredSize,
+                availableWidth: geo.size.width - hPad * 2
+            )
 
             VStack(spacing: 0) {
                 // Leave room for the take counter in the top corner

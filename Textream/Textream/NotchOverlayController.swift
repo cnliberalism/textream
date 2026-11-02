@@ -616,6 +616,20 @@ class NotchOverlayController: NSObject {
             }
             // Take Mode keys (CNL). Arrow and Page keys cover most presentation clickers.
             let modifiers = event.modifierFlags.intersection([.command, .option, .control, .shift])
+            // CNL: + / − (with or without ⌘) resize the text while prompting
+            let sizeKey = event.charactersIgnoringModifiers ?? ""
+            if modifiers.subtracting([.command, .shift]).isEmpty {
+                if sizeKey == "=" || sizeKey == "+" {
+                    let settings = NotchSettings.shared
+                    settings.fontSizePreset = settings.fontSizePreset.stepped(by: 1)
+                    return nil
+                }
+                if sizeKey == "-" || sizeKey == "_" {
+                    let settings = NotchSettings.shared
+                    settings.fontSizePreset = settings.fontSizePreset.stepped(by: -1)
+                    return nil
+                }
+            }
             if self.overlayContent.isTake && modifiers.isEmpty {
                 switch event.keyCode {
                 case 124, 121: // → / Page Down: skip to the next take

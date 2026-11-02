@@ -47,6 +47,14 @@ enum FontSizePreset: String, CaseIterable, Identifiable {
     var fullscreenScale: CGFloat {
         max(1, pointSize / 24)
     }
+
+    /// CNL: the next size up or down, for + / − while prompting.
+    func stepped(by delta: Int) -> FontSizePreset {
+        let all = FontSizePreset.allCases
+        guard let index = all.firstIndex(of: self) else { return self }
+        let next = min(max(index + delta, 0), all.count - 1)
+        return all[next]
+    }
 }
 
 // MARK: - Take Split (CNL Take Mode)
@@ -540,14 +548,7 @@ class NotchSettings {
         didSet { UserDefaults.standard.set(takeBreakSeconds, forKey: "takeBreakSeconds") }
     }
 
-    /// Text size for takes on the fullscreen teleprompter.
-    var takeFontSize: Double {
-        didSet { UserDefaults.standard.set(takeFontSize, forKey: "takeFontSize") }
-    }
-
     static let takeBreakOptions = [1, 2, 3, 5]
-    static let takeFontSizeRange: ClosedRange<Double> = 72...800
-    static let defaultTakeFontSize: Double = 200
 
     var fullscreenScreenID: UInt32 {
         didSet {
@@ -679,10 +680,6 @@ class NotchSettings {
         self.takeSplit = TakeSplit(rawValue: UserDefaults.standard.string(forKey: "takeSplit") ?? "") ?? .blankLine
         let savedBreak = UserDefaults.standard.integer(forKey: "takeBreakSeconds")
         self.takeBreakSeconds = NotchSettings.takeBreakOptions.contains(savedBreak) ? savedBreak : 3
-        let savedTakeFont = UserDefaults.standard.double(forKey: "takeFontSize")
-        self.takeFontSize = NotchSettings.takeFontSizeRange.contains(savedTakeFont)
-            ? savedTakeFont
-            : NotchSettings.defaultTakeFontSize
         self.alwaysFullscreen = UserDefaults.standard.object(forKey: "alwaysFullscreen") as? Bool ?? true
         self.teleprompterScreenName = UserDefaults.standard.string(forKey: "teleprompterScreenName") ?? ""
         let savedFullscreenScreenID = UserDefaults.standard.integer(forKey: "fullscreenScreenID")

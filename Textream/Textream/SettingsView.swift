@@ -1206,22 +1206,9 @@ struct SettingsView: View {
                 }
 
                 if settings.takeMode {
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Text("Text Size")
-                                .font(.system(size: 13))
-                            Spacer()
-                            Text("\(Int(settings.takeFontSize)) pt")
-                                .font(.system(size: 12))
-                                .monospacedDigit()
-                                .foregroundStyle(.secondary)
-                        }
-                        Slider(value: $settings.takeFontSize, in: NotchSettings.takeFontSizeRange, step: 4)
-                        Text("Text size on the fullscreen teleprompter. If a word is too wide for the screen, the text shrinks just enough to fit it.")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
-                    }
-
+                    Text("Text size is set by Size in Appearance (2XL to 5XL for the field monitor). While prompting, press + or − to change it on the fly.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
                 }
             }
             .padding(16)
@@ -1652,7 +1639,6 @@ struct SettingsView: View {
         settings.takeFlow = .continuous
         settings.takeSplit = .blankLine
         settings.takeBreakSeconds = 3
-        settings.takeFontSize = NotchSettings.defaultTakeFontSize
         settings.browserServerEnabled = false
         settings.browserServerPort = 7373
         settings.directorModeEnabled = false
