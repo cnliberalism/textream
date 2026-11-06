@@ -1099,7 +1099,7 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Hide from Screen Sharing")
                             .font(.system(size: 13, weight: .medium))
-                        Text("Hide the overlay from screen recordings and video calls.")
+                        Text("Hide the overlay from screen recordings and video calls. The fullscreen teleprompter is never hidden, so displays like the Elgato Prompter can show it.")
                             .font(.system(size: 11))
                             .foregroundStyle(.secondary)
                     }

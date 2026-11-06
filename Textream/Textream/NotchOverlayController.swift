@@ -511,7 +511,11 @@ class NotchOverlayController: NSObject {
         panel.level = .screenSaver
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.ignoresMouseEvents = false
-        panel.sharingType = settings.hideFromScreenShare ? .none : .readOnly
+        // CNL: the fullscreen prompter is always visible to screen capture.
+        // A display like the Elgato Prompter in Display mode is fed by
+        // capturing its screen, so a window hidden from capture shows up
+        // nowhere: not on the Mac, and not on the prompter either.
+        panel.sharingType = .readOnly
         panel.contentView = contentView
         panel.setFrame(screenFrame, display: true)
         panel.orderFrontRegardless()
